@@ -1,9 +1,10 @@
 import axios from "axios";
 
-const TODO_API_BASE_URL="http://localhost:8080/api/v1/todos";
+const TODO_API_BASE_URL="/api/v1/todos";
 
 class TodoService {
     getTodos() {
+        console.log(TODO_API_BASE_URL);
         return axios.get(TODO_API_BASE_URL);
     }
 

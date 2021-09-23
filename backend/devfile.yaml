@@ -1,0 +1,120 @@
+commands:
+- exec:
+    commandLine: mvn clean -Dmaven.repo.local=/home/user/.m2/repository package -Dmaven.test.skip=true
+    component: tools
+    group:
+      isDefault: true
+      kind: build
+  id: build
+- exec:
+    commandLine: mvn -Dmaven.repo.local=/home/user/.m2/repository spring-boot:run
+    component: tools
+    group:
+      isDefault: true
+      kind: run
+  id: run
+- exec:
+    commandLine: java -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=${DEBUG_PORT},suspend=n
+      -jar target/*.jar
+    component: tools
+    group:
+      isDefault: true
+      kind: debug
+  id: debug
+components:
+- container:
+    endpoints:
+    - name: 8080-tcp
+      targetPort: 8080
+    image: quay.io/eclipse/che-java11-maven:next
+    memoryLimit: 768Mi
+    mountSources: true
+    volumeMounts:
+    - name: m2
+      path: /home/user/.m2
+  name: tools
+- name: m2
+  volume:
+    size: 3Gi
+- kubernetes:
+    inlined: |
+      apiVersion: postgres-operator.crunchydata.com/v1beta1
+      kind: PostgresCluster
+      metadata:
+        name: hippo
+      spec:
+        backups:
+          pgbackrest:
+            image: registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:centos8-2.33-2
+            repos:
+            - name: repo1
+              volume:
+                volumeClaimSpec:
+                  accessModes:
+                  - ReadWriteOnce
+                  resources:
+                    requests:
+                      storage: 1Gi
+            - name: repo2
+              volume:
+                volumeClaimSpec:
+                  accessModes:
+                  - ReadWriteOnce
+                  resources:
+                    requests:
+                      storage: 1Gi
+        image: registry.developers.crunchydata.com/crunchydata/crunchy-postgres-ha:centos8-13.4-0
+        instances:
+        - dataVolumeClaimSpec:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
+          name: instance1
+        postgresVersion: 13
+        proxy:
+          pgBouncer:
+            image: registry.developers.crunchydata.com/crunchydata/crunchy-pgbouncer:centos8-1.15-2
+  name: hippo
+- kubernetes:
+    inlined: |
+      apiVersion: binding.operators.coreos.com/v1alpha1
+      kind: ServiceBinding
+      metadata:
+        creationTimestamp: null
+        name: backend-postgrescluster-hippo
+      spec:
+        application:
+          group: apps
+          name: backend-app
+          resource: deployments
+          version: v1
+        bindAsFiles: false
+        detectBindingResources: true
+        services:
+        - group: postgres-operator.crunchydata.com
+          kind: PostgresCluster
+          name: hippo
+          version: v1beta1
+      status:
+        secret: ""
+  name: backend-postgrescluster-hippo
+metadata:
+  description: Spring Boot® using Java
+  displayName: Spring Boot®
+  globalMemoryLimit: 2674Mi
+  icon: https://spring.io/images/projects/spring-edf462fec682b9d48cf628eaf9e19521.svg
+  language: java
+  name: backend
+  projectType: spring
+  tags:
+  - Java
+  - Spring
+  version: 1.1.0
+schemaVersion: 2.0.0
+starterProjects:
+- git:
+    remotes:
+      origin: https://github.com/odo-devfiles/springboot-ex.git
+  name: springbootproject
